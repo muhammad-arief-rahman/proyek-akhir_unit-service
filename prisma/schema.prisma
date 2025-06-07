@@ -1,0 +1,64 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Unit {
+  id String @id @default(cuid())
+
+  type         String
+  manufacturer String
+  model        String
+  modelType    String
+
+  instances UnitInstance[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("units")
+}
+
+model UnitInstance {
+  id String @id @default(cuid())
+
+  serialNo String
+
+  unitId String
+  unit   Unit   @relation(fields: [unitId], references: [id])
+
+  operationalData OperationalData[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@map("unit_instances")
+}
+
+model OperationalData {
+  id String @id @default(cuid())
+
+  workHours       Float
+  actualWorkHours Float
+  longitude       Float
+  latitude        Float
+  fuelUsage       Float
+
+  instanceId String
+  instance   UnitInstance @relation(fields: [instanceId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("operational_data")
+}
