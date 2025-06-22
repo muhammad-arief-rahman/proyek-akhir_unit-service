@@ -38,11 +38,14 @@ model UnitInstance {
   unitId String
   unit   Unit   @relation(fields: [unitId], references: [id])
 
+  organizationId String?
+
   operationalData OperationalData[]
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 
   @@map("unit_instances")
+  @@unique([unitId, serialNo])
 }
 
 model OperationalData {
@@ -53,6 +56,7 @@ model OperationalData {
   longitude       Float
   latitude        Float
   fuelUsage       Float
+  gpsTime         DateTime
 
   instanceId String
   instance   UnitInstance @relation(fields: [instanceId], references: [id])
@@ -61,4 +65,5 @@ model OperationalData {
   updatedAt DateTime @updatedAt
 
   @@map("operational_data")
+  @@unique([instanceId, gpsTime])
 }

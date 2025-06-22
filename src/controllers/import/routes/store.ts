@@ -13,8 +13,11 @@ import storeSchema, {
 import { ZodError } from "zod"
 import type { Unit } from "../../../generated/prisma"
 import prisma from "../../../lib/db"
+import axios, { AxiosError } from "axios"
 
 export const store: RequestHandler = async (req, res) => {
+  console.log("Storing data...")
+  
   try {
     const data = req.body as unknown[]
 
@@ -38,6 +41,7 @@ export const store: RequestHandler = async (req, res) => {
         message: "Validation error",
         errors: errors,
       })
+      return
     }
 
     // Assert data
@@ -70,6 +74,8 @@ export const store: RequestHandler = async (req, res) => {
     prisma.$transaction(async (tx) => {
       // * Step 1: Store unit data
 
+      console.log("Storing units...")
+
       // Map to Prisma Unit type if possible
       const units = await Promise.all(
         uniqueUnitsArray.map(async (unit) => {
@@ -101,10 +107,12 @@ export const store: RequestHandler = async (req, res) => {
         })
       )
 
+      console.log("Storing instances and operational data...")
+
       // * Step 2: Store unit instances
       // Map data to each instance
-      const unitInstanceData = parsedData
-        .map((item) => {
+      const unitInstances = await Promise.all(
+        parsedData.map(async (item) => {
           const unit = units.find(
             (unit) =>
               unit?.manufacturer === item.manufacturer &&
@@ -117,37 +125,167 @@ export const store: RequestHandler = async (req, res) => {
             return null
           }
 
-          return {
-            unitId: unit.id,
-            serialNo: item.serialNo,
+          const existingInstance = await tx.unitInstance.findFirst({
+            where: {
+              serialNo: item.serialNo,
+              unitId: unit.id,
+            },
+          })
+
+          if (existingInstance) {
+            // Add customer organization ID if it doesn't exist
+            if (
+              existingInstance.organizationId !== item.customerOrganizationId
+            ) {
+              return await tx.unitInstance.update({
+                where: {
+                  id: existingInstance.id,
+                },
+                data: {
+                  organizationId: item.customerOrganizationId,
+                },
+              })
+            }
+
+            return existingInstance
           }
+
+          return await tx.unitInstance.create({
+            data: {
+              unitId: unit.id,
+              serialNo: item.serialNo,
+              organizationId: item.customerOrganizationId,
+            },
+          })
         })
-        .filter((item) => item !== null)
+      )
 
-      const existingInstances = await tx.unitInstance.findMany({
-        where: {
-          OR: unitInstanceData.map((item) => ({
-            serialNo: item.serialNo,
-            unitId: item.unitId,
-          })),
-        },
-        select: {
-          serialNo: true,
-          unitId: true,
-        },
+      const filteredInstances = unitInstances.filter(
+        (instance) => instance !== null
+      )
+
+      console.log("Creating operational data...")
+
+      // * Step 3: Create operational data for each unit instance
+      const operationalData = parsedData.map((item) => {
+        const unit = units.find(
+          (unit) =>
+            unit?.manufacturer === item.manufacturer &&
+            unit?.model === item.model &&
+            unit?.modelType === item.modelType &&
+            unit?.type === item.machineType
+        )
+
+        if (!unit) {
+          return null
+        }
+
+        const instance = filteredInstances.find(
+          (instance) =>
+            instance.serialNo === item.serialNo && instance.unitId === unit.id
+        )
+
+        if (!instance) {
+          return null
+        }
+
+        // Check if certain data is null or undefined
+        if (
+          item.latitude === null ||
+          item.longitude === null ||
+          item.workingHours === null ||
+          item.actualWorkingHours === null ||
+          item.fuelConsumed === null
+        ) {
+          return null
+        }
+
+        return {
+          instanceId: instance.id,
+          workHours: item.workingHours,
+          actualWorkHours: item.actualWorkingHours,
+          longitude: item.longitude,
+          latitude: item.latitude,
+          fuelUsage: item.fuelConsumed,
+          gpsTime: new Date(item.gpsTime).toISOString(),
+        }
       })
 
-      const unitInstances = await prisma.unitInstance.createManyAndReturn({
-        data: unitInstanceData.filter((item) => item !== null),
-      })
+      // Filter out null values
+      const filteredOperationalData = operationalData.filter(
+        (item) => item !== null
+      )
 
-      response(res, 500, "DEBUG", {
-        units: uniqueUnitsArray,
-        instances: unitInstances,
-        parsedData,
-      })
+      // Upsert operational data in the database
+      const operationalDataUpsert = await Promise.all(
+        filteredOperationalData.map(async (data) => {
+          return await tx.operationalData.upsert({
+            where: {
+              instanceId_gpsTime: {
+                instanceId: data.instanceId,
+                gpsTime: data.gpsTime,
+              },
+            },
+            update: data,
+            create: data,
+          })
+        })
+      )
 
-      response(res, 200, "tamat", units)
+      // * Step 4: Add customer data
+      // Group by customer organization ID
+      const customerData = parsedData.reduce((acc, curr) => {
+        const { customerOrganizationId, customerName, customerIndustry } = curr
+
+        if (!acc[customerOrganizationId]) {
+          acc[customerOrganizationId] = {
+            organizationId: customerOrganizationId,
+            name: customerName,
+            industry: customerIndustry,
+            subGroup: curr.subGroup,
+          }
+        }
+
+        return acc
+      }, {} as Record<string, any>)
+
+      // Flatten into an array
+      const flattenedCustomerData = Object.values(customerData)
+
+      console.log("Storing customer data...", flattenedCustomerData)
+
+      try {
+        // Request to customer service
+        const customerResponse = await axios.post(
+          `${process.env.CUSTOMER_SERVICE_URL}/data/store`,
+          flattenedCustomerData,
+          {
+            headers: {
+              "Content-Type": "application/json",
+              "X-Service-Secret": process.env.SERVICE_SECRET || "",
+            },
+          }
+        )
+
+        console.log("Customer data response:", customerResponse.data)
+
+        response(res, 200, "Successfully added data", {
+          units: units.filter((unit) => unit !== null),
+          unitInstances: filteredInstances,
+          operationalData: operationalDataUpsert,
+        })
+        return
+      } catch (error) {
+        console.error("Error storing customer data:", error)
+        
+        if (error instanceof AxiosError) {
+          const { message, error: err } = error.response?.data
+          response(res, error.status, message, err)
+          return
+        }
+
+        throw error
+      }
     })
   } catch (error) {
     if (error instanceof ZodError) {
@@ -155,6 +293,7 @@ export const store: RequestHandler = async (req, res) => {
         message: "Validation error",
         errors: error,
       })
+      return
     }
 
     internalServerError(res)

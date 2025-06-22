@@ -50,7 +50,6 @@ const check: RequestHandler = async (req, res) => {
       model: "model",
       type: "modelType",
       serial_no: "serialNo",
-      customer_name: "customerName",
       location: "location",
       lat: "latitude",
       long: "longitude",
@@ -58,6 +57,12 @@ const check: RequestHandler = async (req, res) => {
       gps_time: "gpsTime",
       smrh: "smrHours",
       actual_working_hoursh: "actualWorkingHours",
+      working_hours: "workingHours",
+      amount_of_fuel_consumedl: "fuelConsumed",
+      customer_name: "customerName",
+      customer_organization_id: "customerOrganizationId",
+      customers_type_of_industry: "customerIndustry",
+      sub_group: "subGroup",
     }
 
     // Check if all required columns are present
