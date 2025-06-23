@@ -49,6 +49,21 @@ export const index: RequestHandler = async (req, res) => {
       ],
     }
 
+    // Get latest operational data ID for each instance
+    const latestDataIds = await prisma.operationalData.groupBy({
+      by: ["instanceId"],
+      _max: {
+        id: true,
+        createdAt: true,
+      },
+      where: whereQuery,
+    })
+
+    // Extract the latest operational data IDs
+    const latestIds = latestDataIds
+      .map((data) => data._max.id)
+      .filter(Boolean) as string[]
+
     const operationalData = await prisma.operationalData.findMany({
       include: {
         instance: {
@@ -57,7 +72,9 @@ export const index: RequestHandler = async (req, res) => {
           },
         },
       },
-      where: whereQuery,
+      where: {
+        id: { in: latestIds },
+      },
       orderBy: {
         [sortBy]: sortOrder,
       },

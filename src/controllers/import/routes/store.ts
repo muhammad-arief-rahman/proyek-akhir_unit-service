@@ -207,8 +207,9 @@ export const store: RequestHandler = async (req, res) => {
           longitude: item.longitude,
           latitude: item.latitude,
           fuelUsage: item.fuelConsumed,
+          smr: item.smrHours,
           gpsTime: new Date(item.gpsTime).toISOString(),
-        }
+        } satisfies Parameters<typeof tx.operationalData.upsert>[0]["create"]
       })
 
       // Filter out null values
@@ -231,6 +232,7 @@ export const store: RequestHandler = async (req, res) => {
           })
         })
       )
+
 
       // * Step 4: Add customer data
       // Group by customer organization ID

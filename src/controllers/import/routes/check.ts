@@ -55,7 +55,7 @@ const check: RequestHandler = async (req, res) => {
       long: "longitude",
       transmit_time: "transmitTime",
       gps_time: "gpsTime",
-      smrh: "smrHours",
+      smrh: "smr",
       actual_working_hoursh: "actualWorkingHours",
       working_hours: "workingHours",
       amount_of_fuel_consumedl: "fuelConsumed",
