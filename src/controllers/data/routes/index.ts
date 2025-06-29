@@ -15,6 +15,7 @@ export const index: RequestHandler = async (req, res) => {
       sortBy = "createdAt",
       sortOrder = "desc",
       organizationId = "",
+      noPagination = "false",
     } = req.query as Record<string, string>
 
     const whereQuery = {
@@ -63,6 +64,25 @@ export const index: RequestHandler = async (req, res) => {
     const latestIds = latestDataIds
       .map((data) => data._max.id)
       .filter(Boolean) as string[]
+
+    if (noPagination === "true") {
+      const operationalData = await prisma.operationalData.findMany({
+        include: {
+          instance: {
+            include: {
+              unit: true,
+            },
+          },
+        },
+      })
+
+      return response(
+        res,
+        200,
+        "Fetched operational data successfully",
+        operationalData
+      )
+    }
 
     const operationalData = await prisma.operationalData.findMany({
       include: {
