@@ -11,5 +11,6 @@ router.post("/import/store", ImportController.store)
 // router.get("/customers", CustomerController.getAll)
 
 router.get("/data", DataController.index)
+router.get("/data/summary", DataController.summary)
 
 export default router

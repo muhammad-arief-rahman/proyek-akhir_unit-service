@@ -3,10 +3,48 @@ import {
   internalServerError,
   response,
 } from "@ariefrahman39/shared-utils"
-import type { RequestHandler } from "express"
+import type { Request, RequestHandler } from "express"
 import prisma from "../../../lib/db"
 
-export const index: RequestHandler = async (req, res) => {
+export const createWhereQuery = ({
+  search = "",
+  organizationId = "",
+}: {
+  search: string
+  organizationId: string
+}) => ({
+  OR: [
+    {
+      instance: {
+        unit: { manufacturer: { contains: search } },
+      },
+    },
+    {
+      instance: {
+        unit: { model: { contains: search } },
+      },
+    },
+    {
+      instance: {
+        unit: { modelType: { contains: search } },
+      },
+    },
+    {
+      instance: {
+        serialNo: { contains: search },
+      },
+    },
+  ],
+  AND: [
+    {
+      instance: {
+        organizationId: { contains: organizationId },
+      },
+    },
+  ],
+})
+
+const index: RequestHandler = async (req, res) => {
   try {
     const {
       page = 1,
@@ -18,38 +56,6 @@ export const index: RequestHandler = async (req, res) => {
       noPagination = "false",
     } = req.query as Record<string, string>
 
-    const whereQuery = {
-      OR: [
-        {
-          instance: {
-            unit: { manufacturer: { contains: search } },
-          },
-        },
-        {
-          instance: {
-            unit: { model: { contains: search } },
-          },
-        },
-        {
-          instance: {
-            unit: { modelType: { contains: search } },
-          },
-        },
-        {
-          instance: {
-            serialNo: { contains: search },
-          },
-        },
-      ],
-      AND: [
-        {
-          instance: {
-            organizationId: { contains: organizationId },
-          },
-        },
-      ],
-    }
-
     // Get latest operational data ID for each instance
     const latestDataIds = await prisma.operationalData.groupBy({
       by: ["instanceId"],
@@ -57,7 +63,7 @@ export const index: RequestHandler = async (req, res) => {
         id: true,
         createdAt: true,
       },
-      where: whereQuery,
+      where: createWhereQuery({ search, organizationId }),
     })
 
     // Extract the latest operational data IDs
@@ -74,14 +80,18 @@ export const index: RequestHandler = async (req, res) => {
             },
           },
         },
+        where: {
+          id: { in: latestIds },
+        },
       })
 
-      return response(
+      response(
         res,
         200,
         "Fetched operational data successfully",
         operationalData
       )
+      return
     }
 
     const operationalData = await prisma.operationalData.findMany({
@@ -103,7 +113,9 @@ export const index: RequestHandler = async (req, res) => {
     })
 
     const totalOperationalData = await prisma.operationalData.count({
-      where: whereQuery,
+      where: {
+        id: { in: latestIds },
+      }
     })
 
     const totalPages = Math.ceil(totalOperationalData / Number(limit))
@@ -125,3 +137,7 @@ export const index: RequestHandler = async (req, res) => {
     internalServerError(res, error)
   }
 }
+
+export default index
+
+export { default as summary } from "./summary"
