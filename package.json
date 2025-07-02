@@ -14,11 +14,13 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "@ariefrahman39/shared-utils": "0.3",
+    "@ariefrahman39/shared-utils": "^0.6.1",
     "@prisma/client": "^6.8.2",
+    "@types/cookie-parser": "^1.4.9",
     "@types/express": "^5.0.1",
     "@types/multer": "^1.4.12",
     "axios": "^1.10.0",
+    "cookie-parser": "^1.4.7",
     "express": "^5.1.0",
     "multer": "^1.4.5-lts.2",
     "prisma": "^6.8.2",

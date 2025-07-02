@@ -1,4 +1,5 @@
 import {
+  getAuthToken,
   internalServerError,
   response,
   zodCatchHandler,
@@ -17,7 +18,7 @@ import axios, { AxiosError } from "axios"
 
 export const store: RequestHandler = async (req, res) => {
   console.log("Storing data...")
-  
+
   try {
     const data = req.body as unknown[]
 
@@ -107,9 +108,53 @@ export const store: RequestHandler = async (req, res) => {
         })
       )
 
-      console.log("Storing instances and operational data...")
+      // * Step 2: Add customer data
+      // Group by customer organization ID
+      const customerData = parsedData.reduce((acc, curr) => {
+        const { customerOrganizationId, customerName, customerIndustry } = curr
 
-      // * Step 2: Store unit instances
+        if (!acc[customerOrganizationId]) {
+          acc[customerOrganizationId] = {
+            organizationId: customerOrganizationId,
+            name: customerName,
+            industry: customerIndustry,
+            subGroup: curr.subGroup,
+          }
+        }
+
+        return acc
+      }, {} as Record<string, any>)
+
+      // Flatten into an array
+      const flattenedCustomerData = Object.values(customerData)
+
+      const customerResponse = await axios.post(
+        `${process.env.CUSTOMER_SERVICE_URL}/data/store`,
+        flattenedCustomerData,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "X-Service-Secret": process.env.SERVICE_SECRET || "",
+            "Authorization": `Bearer ${getAuthToken(req)}`,
+          },
+        }
+      )
+
+      
+      // Get new customer data
+
+      const newCustomerResponse = await axios.get(
+        `${process.env.CUSTOMER_SERVICE_URL}/data`,
+        {
+          headers: {
+            Authorization: `Bearer ${getAuthToken(req)}`,
+          },
+        }
+      )
+
+      const newCustomers = newCustomerResponse.data.data as any[]
+
+      // * Step 3: Store unit instances
       // Map data to each instance
       const unitInstances = await Promise.all(
         parsedData.map(async (item) => {
@@ -125,6 +170,11 @@ export const store: RequestHandler = async (req, res) => {
             return null
           }
 
+          const customerByOrganizationId = newCustomers.find(
+            (customer) =>
+              customer.organizationId === item.customerOrganizationId
+          )
+
           const existingInstance = await tx.unitInstance.findFirst({
             where: {
               serialNo: item.serialNo,
@@ -135,14 +185,14 @@ export const store: RequestHandler = async (req, res) => {
           if (existingInstance) {
             // Add customer organization ID if it doesn't exist
             if (
-              existingInstance.organizationId !== item.customerOrganizationId
+              existingInstance.organizationId !== customerByOrganizationId?.id
             ) {
               return await tx.unitInstance.update({
                 where: {
                   id: existingInstance.id,
                 },
                 data: {
-                  organizationId: item.customerOrganizationId,
+                  organizationId: customerByOrganizationId?.id,
                 },
               })
             }
@@ -154,7 +204,7 @@ export const store: RequestHandler = async (req, res) => {
             data: {
               unitId: unit.id,
               serialNo: item.serialNo,
-              organizationId: item.customerOrganizationId,
+              organizationId: customerByOrganizationId?.id || "",
             },
           })
         })
@@ -166,7 +216,7 @@ export const store: RequestHandler = async (req, res) => {
 
       console.log("Creating operational data...")
 
-      // * Step 3: Create operational data for each unit instance
+      // * Step 4: Create operational data for each unit instance
       const operationalData = parsedData.map((item) => {
         const unit = units.find(
           (unit) =>
@@ -232,62 +282,10 @@ export const store: RequestHandler = async (req, res) => {
           })
         })
       )
+    })
 
-
-      // * Step 4: Add customer data
-      // Group by customer organization ID
-      const customerData = parsedData.reduce((acc, curr) => {
-        const { customerOrganizationId, customerName, customerIndustry } = curr
-
-        if (!acc[customerOrganizationId]) {
-          acc[customerOrganizationId] = {
-            organizationId: customerOrganizationId,
-            name: customerName,
-            industry: customerIndustry,
-            subGroup: curr.subGroup,
-          }
-        }
-
-        return acc
-      }, {} as Record<string, any>)
-
-      // Flatten into an array
-      const flattenedCustomerData = Object.values(customerData)
-
-      console.log("Storing customer data...", flattenedCustomerData)
-
-      try {
-        // Request to customer service
-        const customerResponse = await axios.post(
-          `${process.env.CUSTOMER_SERVICE_URL}/data/store`,
-          flattenedCustomerData,
-          {
-            headers: {
-              "Content-Type": "application/json",
-              "X-Service-Secret": process.env.SERVICE_SECRET || "",
-            },
-          }
-        )
-
-        console.log("Customer data response:", customerResponse.data)
-
-        response(res, 200, "Successfully added data", {
-          units: units.filter((unit) => unit !== null),
-          unitInstances: filteredInstances,
-          operationalData: operationalDataUpsert,
-        })
-        return
-      } catch (error) {
-        console.error("Error storing customer data:", error)
-        
-        if (error instanceof AxiosError) {
-          const { message, error: err } = error.response?.data
-          response(res, error.status, message, err)
-          return
-        }
-
-        throw error
-      }
+    response(res, 200, "Data stored successfully", {
+      message: "Data stored successfully",
     })
   } catch (error) {
     if (error instanceof ZodError) {

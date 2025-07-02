@@ -5,14 +5,17 @@ import {
 } from "@ariefrahman39/shared-utils"
 import type { Request, RequestHandler } from "express"
 import prisma from "../../../lib/db"
+import type { Prisma } from "../../../generated/prisma"
 
 export const createWhereQuery = ({
   search = "",
   organizationId = "",
+  customerId = "",
 }: {
   search: string
   organizationId: string
-}) => ({
+  customerId: string
+}): Prisma.OperationalDataWhereInput => ({
   OR: [
     {
       instance: {
@@ -42,6 +45,11 @@ export const createWhereQuery = ({
       },
     },
   ],
+  ...(customerId && {
+    instance: {
+      organizationId: { contains: customerId },
+    }
+  })
 })
 
 const index: RequestHandler = async (req, res) => {
@@ -54,8 +62,15 @@ const index: RequestHandler = async (req, res) => {
       sortOrder = "desc",
       organizationId = "",
       noPagination = "false",
+      customerId = "",
     } = req.query as Record<string, string>
 
+    const whereQuery = createWhereQuery({
+      search,
+      organizationId,
+      customerId,
+    })
+    
     // Get latest operational data ID for each instance
     const latestDataIds = await prisma.operationalData.groupBy({
       by: ["instanceId"],
@@ -63,7 +78,7 @@ const index: RequestHandler = async (req, res) => {
         id: true,
         createdAt: true,
       },
-      where: createWhereQuery({ search, organizationId }),
+      where: whereQuery,
     })
 
     // Extract the latest operational data IDs
