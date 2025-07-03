@@ -63,6 +63,7 @@ const check: RequestHandler = async (req, res) => {
       customer_organization_id: "customerOrganizationId",
       customers_type_of_industry: "customerIndustry",
       sub_group: "subGroup",
+      idling_hour_ratio: "idlingHourRatio",
     }
 
     // Check if all required columns are present

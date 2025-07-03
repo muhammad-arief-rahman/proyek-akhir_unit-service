@@ -13,10 +13,8 @@ router.post("/import/store", ImportController.store)
 
 router.get("/data", DataController.index)
 router.get("/data/summary", DataController.summary)
+router.get("/base-data", DataController.baseUnit)
 
-router.get(
-  "/customer-summary/:id",
-  CustomerController.summary
-)
+router.get("/customer-summary/:id", CustomerController.summary)
 
 export default router

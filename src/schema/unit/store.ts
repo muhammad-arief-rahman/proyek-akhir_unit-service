@@ -52,6 +52,11 @@ export const storeItemSchema = z.object({
     .min(1, "Customer organization ID must not be empty"),
   customerIndustry: z.string().min(1, "Customer industry must not be empty"),
   subGroup: z.string().min(1, "Subgroup must not be empty"),
+  idlingHourRatio: z
+    .number()
+    .min(0, "Idling hour ratio must be a positive number")
+    .nullable()
+    .default(0),
 })
 
 const storeSchema = z.array(storeItemSchema).min(1)

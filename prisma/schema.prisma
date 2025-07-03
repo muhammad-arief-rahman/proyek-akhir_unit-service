@@ -57,7 +57,8 @@ model OperationalData {
   latitude        Float
   fuelUsage       Float
   gpsTime         DateTime
-  smr             Float @default(0)
+  smr             Float    @default(0)
+  idleTime        Float
 
   instanceId String
   instance   UnitInstance @relation(fields: [instanceId], references: [id])

@@ -109,6 +109,8 @@ export const store: RequestHandler = async (req, res) => {
       )
 
       // * Step 2: Add customer data
+      console.log("Storing customer data...")
+      
       // Group by customer organization ID
       const customerData = parsedData.reduce((acc, curr) => {
         const { customerOrganizationId, customerName, customerIndustry } = curr
@@ -250,6 +252,9 @@ export const store: RequestHandler = async (req, res) => {
           return null
         }
 
+        // Calculate idle time
+        const idleTime = item.workingHours * (item.idlingHourRatio ?? 0)
+
         return {
           instanceId: instance.id,
           workHours: item.workingHours,
@@ -258,6 +263,7 @@ export const store: RequestHandler = async (req, res) => {
           latitude: item.latitude,
           fuelUsage: item.fuelConsumed,
           smr: item.smrHours,
+          idleTime: idleTime,
           gpsTime: new Date(item.gpsTime).toISOString(),
         } satisfies Parameters<typeof tx.operationalData.upsert>[0]["create"]
       })
@@ -288,6 +294,7 @@ export const store: RequestHandler = async (req, res) => {
       message: "Data stored successfully",
     })
   } catch (error) {
+    
     if (error instanceof ZodError) {
       res.status(422).json({
         message: "Validation error",
