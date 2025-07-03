@@ -1,7 +1,8 @@
-import { getAll } from "./routes/getAll"
+import { getAll, summary } from "./routes"
 
 const CustomerController = {
   getAll,
+  summary
 }
 
 export default CustomerController
