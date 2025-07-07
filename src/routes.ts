@@ -14,6 +14,7 @@ router.post("/import/store", ImportController.store)
 router.get("/data", DataController.index)
 router.get("/data/summary", DataController.summary)
 router.get("/base-data", DataController.baseUnit)
+router.get('/data/instance/:id', DataController.getInstanceById)
 
 router.get("/customer-summary/:id", CustomerController.summary)
 

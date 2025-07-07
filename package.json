@@ -14,7 +14,7 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "@ariefrahman39/shared-utils": "^0.6.1",
+    "@ariefrahman39/shared-utils": "^0.9.1",
     "@prisma/client": "^6.8.2",
     "@types/cookie-parser": "^1.4.9",
     "@types/express": "^5.0.1",

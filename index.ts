@@ -13,9 +13,9 @@ app.use(cookieparser())
 
 app.use("/", router)
 
-// app.use((req, res) => {
-//   response(res, 404, "Not Found")
-// })
+app.use((req, res) => {
+  response(res, 404, "Not Found")
+})
 
 app.listen(port, () => {
   console.log(`Unit-Service is running on port ${port}`)
