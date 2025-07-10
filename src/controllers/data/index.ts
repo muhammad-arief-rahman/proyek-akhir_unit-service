@@ -1,10 +1,17 @@
-import { baseUnit, index, summary, getInstanceById } from "./routes"
+import {
+  baseUnit,
+  index,
+  summary,
+  getInstanceById,
+  getMaintenanceByInstanceId,
+} from "./routes"
 
 const DataController = {
   index,
   summary,
   baseUnit,
-  getInstanceById
+  getInstanceById,
+  getMaintenanceByInstanceId,
 }
 
 export default DataController
